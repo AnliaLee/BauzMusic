@@ -41,8 +41,7 @@ public class MusicService extends MediaBrowserServiceCompat {
 
         mSession = new MediaSessionCompat(this,"MusicService");
         mSession.setCallback(SessionCallback);
-        mSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
-                | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        mSession.setFlags(MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
         mSession.setPlaybackState(mPlaybackState);
 
         //设置token后会触发MediaBrowserCompat.ConnectionCallback的回调方法
@@ -88,6 +87,7 @@ public class MusicService extends MediaBrowserServiceCompat {
         ArrayList<MediaBrowserCompat.MediaItem> mediaItems = new ArrayList<>();
         mediaItems.add(createMediaItem(metadata));
 
+        //向Browser发送数据
         result.sendResult(mediaItems);
     }
 
@@ -98,7 +98,13 @@ public class MusicService extends MediaBrowserServiceCompat {
         );
     }
 
+    /**
+     * 响应控制器指令的回调
+     */
     private android.support.v4.media.session.MediaSessionCompat.Callback SessionCallback = new MediaSessionCompat.Callback(){
+        /**
+         * 响应MediaController.getTransportControls().play
+         */
         @Override
         public void onPlay() {
             Log.e(TAG,"onPlay");
@@ -111,6 +117,9 @@ public class MusicService extends MediaBrowserServiceCompat {
             }
         }
 
+        /**
+         * 响应MediaController.getTransportControls().onPause
+         */
         @Override
         public void onPause() {
             Log.e(TAG,"onPause");
@@ -123,6 +132,11 @@ public class MusicService extends MediaBrowserServiceCompat {
             }
         }
 
+        /**
+         * 响应MediaController.getTransportControls().playFromUri
+         * @param uri
+         * @param extras
+         */
         @Override
         public void onPlayFromUri(Uri uri, Bundle extras) {
             Log.e(TAG,"onPlayFromUri");
@@ -133,11 +147,12 @@ public class MusicService extends MediaBrowserServiceCompat {
                     case PlaybackStateCompat.STATE_NONE:
                         mMediaPlayer.reset();
                         mMediaPlayer.setDataSource(MusicService.this,uri);
-                        mMediaPlayer.prepare();
+                        mMediaPlayer.prepare();//准备同步
                         mPlaybackState = new PlaybackStateCompat.Builder()
                                 .setState(PlaybackStateCompat.STATE_CONNECTING,0,1.0f)
                                 .build();
                         mSession.setPlaybackState(mPlaybackState);
+                        //我们可以保存当前播放音乐的信息，以便客户端刷新UI
                         mSession.setMetadata(new MediaMetadataCompat.Builder()
                                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE,extras.getString("title"))
                                 .build()
@@ -151,10 +166,12 @@ public class MusicService extends MediaBrowserServiceCompat {
 
         @Override
         public void onPlayFromSearch(String query, Bundle extras) {
-            onPlayFromUri(null, null);
         }
     };
 
+    /**
+     * 监听MediaPlayer.prepare()
+     */
     private MediaPlayer.OnPreparedListener PreparedListener = new MediaPlayer.OnPreparedListener() {
         @Override
         public void onPrepared(MediaPlayer mediaPlayer) {
@@ -166,6 +183,9 @@ public class MusicService extends MediaBrowserServiceCompat {
         }
     } ;
 
+    /**
+     * 监听播放结束的事件
+     */
     private MediaPlayer.OnCompletionListener CompletionListener = new MediaPlayer.OnCompletionListener() {
         @Override
         public void onCompletion(MediaPlayer mediaPlayer) {
